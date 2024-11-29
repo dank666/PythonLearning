@@ -1,0 +1,16 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+# Editor-based HTTP Client requests
+/httpRequests/
+# Datasource local storage ignored files
+/dataSources/
+/dataSources.local.xml
+# 忽略 bin/ 目录
+bin/
+# 忽略 lib/ 目录
+lib/
+# 忽略 lib64/ 目录
+lib64/
+# 忽略 pyvenv.cfg 文件
+pyvenv.cfg
