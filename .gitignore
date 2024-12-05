@@ -2,3 +2,5 @@ bin/
 pyvenv.cfg
 lib/
 lib64
+.xlsx
+.csv
