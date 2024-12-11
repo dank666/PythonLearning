@@ -14,7 +14,7 @@ def initialize_population(pop_size, chrom_length):  # pop_size:种群大小， c
 # 将二进制染色体解码为实际变量值(处理单个染色体)
 def decode_chromosome(chrom, bounds):  # bounds:变量的范围
     n_vars = len(bounds)  # 确定有多少个变量， n_vars=2
-    vars_length = len(chrom) // n_vars  # 每个变量对应染色体二进制长度的一半, vars_length=50
+    vars_length = len(chrom) // n_vars  # 每个变量对应染色体二进制长度的一半, vars_length=10
     decoded = []  # 存储解码后的变量值
     for i, bound in enumerate(bounds):  # enumerate是一个内置函数，用来提取可迭代对象的元素及其索引，在这里依次提取0,(-5.12, 5.12)   1,(-5.12, 5.12)
         start, end = i * vars_length, (i + 1) * vars_length  # 每个变量对应的二进制段
@@ -25,11 +25,12 @@ def decode_chromosome(chrom, bounds):  # bounds:变量的范围
         decoded.append(real_value)
     return decoded  # 返回包含x1,x2的列表[x1, x2]
 
-# 计算适应度函数值，负的rastrigin函数值(适应度越大越好)
+# 计算适应度函数值，rastrigin函数值的倒数(适应度越大越好)
 def fitness_function(chrom, bounds):
     decoded = decode_chromosome(chrom, bounds)  # [x1, x2]
-    return -rastrigin(*decoded)  # 返回负的目标函数值，*decoded是解包，将decoded列表中的元素x1,x2作为独立的参数传递给rastrigin函数，rastrigin(*decoded)等价于rastrigin(x1, x2)
-    # 因为在遗传算法中，适应度通常越大越好，所以对目标函数取负，可以使适应度越大越好
+    epsilon = 1e-10  # 添加一个小的epsilon值以避免除零错误
+    return 1 / (rastrigin(decoded[0], decoded[1]) + epsilon)  # 返回目标函数值的倒数
+    # 因为在遗传算法中，适应度通常越大越好，所以对目标函数取倒数，可以使适应度越大越好
 
 # 选择，轮盘赌，根据适应度选择种群中的个体
 def selection(population, fitness):  # population:种群，二维数组，每行表示一个个体， fitness:个体的适应度值，一维数组，与种群的个体一一对应
@@ -56,6 +57,8 @@ def mutation(chrom, p_m):
 # 遗传算法主算法
 def genetic_algorithm(bounds, precision, pop_size, chrom_length, max_generations, p_c, p_m):
     # 初始化种群
+    if pop_size % 2 != 0:
+        pop_size += 1  # 确保种群大小为偶数
     population = initialize_population(pop_size, chrom_length)  # population是一个二进制数组
     best_solution = None  # 用于记录当前最优解
     best_fitness = -np.inf  # 当前最优适应度值, np.inf表示无穷大
@@ -71,7 +74,7 @@ def genetic_algorithm(bounds, precision, pop_size, chrom_length, max_generations
             best_fitness = fitness.max()  # 更新最优适应度
             best_solution = population[fitness.argmax()]  # 更新最优解    fitness.argmax()用来获取数组中最大值索引    best_solution是适应度函数值最大的二进制串
         
-        best_fitnesses.append(fitness.max())
+        best_fitnesses.append(1 / fitness.max())
         best_solutions.append(decode_chromosome(best_solution, bounds))
 
         # 选择操作
@@ -90,13 +93,13 @@ def genetic_algorithm(bounds, precision, pop_size, chrom_length, max_generations
     
     # 解码最终的最优解
     decoded_solution = decode_chromosome(best_solution, bounds)
-    return decoded_solution, -best_fitness, best_fitnesses, best_solutions  # 返回最优解及其目标函数值
+    return decoded_solution, 1 / (best_fitness), best_fitnesses, best_solutions  # 返回最优解及其目标函数值
 
 # 参数设置
 bounds = [(-5.12, 5.12), (-5.12, 5.12)]  # 搜索空间，每个变量的上下界
 precision = 1e-15  # 求解精度
-pop_size = 10000  # 种群规模
-chrom_length = 1000  # 每个染色体的总长度（x1 和 x2 各占一半）
+pop_size = 100  # 种群规模
+chrom_length = 20  # 每个染色体的总长度（x1 和 x2 各占一半）
 max_generations = 100  # 最大迭代次数
 p_c = 0.8  # 交叉概率
 p_m = 0.01  # 变异概率
@@ -118,20 +121,36 @@ print(f"最小值：{min_value}")  # 打印最小值
 # 1. 绘制每代的最佳适应度
 plt.figure(figsize=(12, 6))
 plt.subplot(1, 2, 1)
-plt.plot(best_fitnesses, label="Best Fitness")
-plt.xlabel("Generation")
-plt.ylabel("Best Fitness Value")
-plt.title("Best Fitness Over Generations")
-plt.legend()
+plt.plot(best_fitnesses, label="Best Fitness", color="green")  # 使用绿色曲线表示适应度
+plt.xlabel("Generation")  # 横轴表示迭代代数
+plt.ylabel("Best Fitness Value")  # 纵轴表示最佳适应度值
+plt.title("Best Fitness Over Generations")  # 标题显示适应度变化趋势
+plt.legend()  # 添加图例
+
+plt.grid(True)
+
+# 确保最优解数据是一个 NumPy 数组
+best_solutions = np.array(best_solutions)  # 转换为二维数组，确保正确索引
 
 # 2. 绘制每代的最优解（x1 和 x2）
-best_solutions = np.array(best_solutions)
 plt.subplot(1, 2, 2)
-plt.plot(best_solutions[:, 0], label="x1 (Best Solution)", color="r")
-plt.plot(best_solutions[:, 1], label="x2 (Best Solution)", color="b")
-plt.xlabel("Generation")
-plt.ylabel("Solution Value")
-plt.title("Best Solution (x1, x2) Over Generations")
-plt.legend()
+plt.plot(best_solutions[:, 0], label="x1 (Best Solution)", color="red", linestyle="--")  # x1 曲线为红色虚线
+plt.plot(best_solutions[:, 1], label="x2 (Best Solution)", color="blue", linestyle="-")  # x2 曲线为蓝色实线
+plt.xlabel("Generation")  # 横轴表示迭代代数
+plt.ylabel("Solution Value")  # 纵轴表示最优解值
+plt.title("Best Solution (x1, x2) Over Generations")  # 标题显示解值变化趋势
+plt.legend()  # 添加图例
 
-plt.savefig('/home/wtejing/Python/AIB_experi/best_solution_plot.png')
+plt.grid(True)
+
+# 保存绘图
+output_path = "/home/wtejing/Python/AIB_experi/best_solution_plot.png"  # 输出路径
+try:
+    plt.savefig(output_path)  # 保存为 PNG 格式
+    print(f"绘图已保存至 {output_path}")
+except FileNotFoundError:
+    print("文件路径不存在，请检查路径是否正确。")
+
+# 显示绘图
+plt.tight_layout()  # 调整子图布局，防止重叠
+plt.show()
